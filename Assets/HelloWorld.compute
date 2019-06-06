@@ -1,6 +1,8 @@
 ﻿// Each #kernel tells which function to compile; you can have many kernels
 #pragma kernel CSMain
 
+#define GROUP_SIZE 256
+
 struct MyBufferData {
     float3 position;
     float padding0;
@@ -8,10 +10,11 @@ struct MyBufferData {
 
 RWStructuredBuffer<MyBufferData> sharedBuffer;
 
-[numthreads(1,1,1)]
+[numthreads(GROUP_SIZE,1,1)]
 void CSMain (uint3 id : SV_DispatchThreadID)
 {
-    MyBufferData data = sharedBuffer[0];
-    data.position += float3(0.002, 0, 0);
-    sharedBuffer[0] = data;
+    uint index = id.x;
+    MyBufferData data = sharedBuffer[index];
+    data.position += float3(0.002 * index, 0, 0);
+    sharedBuffer[index] = data;
 }

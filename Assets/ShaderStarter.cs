@@ -13,6 +13,9 @@ public class ShaderStarter : MonoBehaviour
     [SerializeField] Mesh m_myMesh;
     private ComputeBuffer m_drawArgs;
 
+    [SerializeField] int m_objectCount;
+    const int GROUP_SIZE = 256;
+
     // 16 byte alignment
     public struct MyBufferData {
         public Vector3 position;
@@ -28,15 +31,16 @@ public class ShaderStarter : MonoBehaviour
             1, 5 * sizeof(uint), ComputeBufferType.IndirectArguments
         );
         m_drawArgs.SetData(new uint[5] {
-            m_myMesh.GetIndexCount(0), 1, 0, 0, 0
+            m_myMesh.GetIndexCount(0), (uint)m_objectCount, 0, 0, 0
         });
 
-
         // Number of struct instances, size of struct
-        m_sharedBuffer = new ComputeBuffer(1, SIZE_OF_STRUCT);
+        m_sharedBuffer = new ComputeBuffer(m_objectCount, SIZE_OF_STRUCT);
 
-        MyBufferData[] initBufferData = new MyBufferData[1];
-        initBufferData[0].position = Vector3.zero;
+        MyBufferData[] initBufferData = new MyBufferData[m_objectCount];
+        for (int i = 0; i < m_objectCount; i++) {
+            initBufferData[i].position = Vector3.right * i;
+        }
 
         m_sharedBuffer.SetData(initBufferData);
     }
@@ -45,7 +49,7 @@ public class ShaderStarter : MonoBehaviour
     void Update()
     {
         m_computeShader.SetBuffer(m_kernelHandle, "sharedBuffer", m_sharedBuffer);
-        m_computeShader.Dispatch(m_kernelHandle, 1, 1, 1);
+        m_computeShader.Dispatch(m_kernelHandle, m_objectCount / GROUP_SIZE + 1, 1, 1);
 
         m_myMaterial.SetBuffer("sharedBuffer", m_sharedBuffer);
         Graphics.DrawMeshInstancedIndirect(m_myMesh, 0, m_myMaterial, new Bounds(Vector3.zero, Vector3.one*1000), m_drawArgs, 0);

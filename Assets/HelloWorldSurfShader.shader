@@ -38,6 +38,7 @@
         half _Glossiness;
         half _Metallic;
         fixed4 _Color;
+
         float3 _MyPos;
 
         // Add instancing support for this shader. You need to check 'Enable Instancing' on materials that use the shader.
@@ -49,7 +50,7 @@
 
         void setup() {
             #ifdef UNITY_PROCEDURAL_INSTANCING_ENABLED
-            _MyPos = sharedBuffer[0].position;
+            _MyPos = sharedBuffer[unity_InstanceID].position;
             #endif
         }
 
