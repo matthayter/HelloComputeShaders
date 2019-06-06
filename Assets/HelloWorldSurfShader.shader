@@ -14,7 +14,7 @@
 
         CGPROGRAM
         // Physically based Standard lighting model, and enable shadows on all light types
-        #pragma surface surf Standard vertex:vert fullforwardshadows
+        #pragma surface surf Standard vertex:vert nolightmap
         #pragma instancing_options procedural:setup
 
         // Use shader model 3.0 target, to get nicer looking lighting
@@ -30,6 +30,8 @@
         #ifdef UNITY_PROCEDURAL_INSTANCING_ENABLED
             struct MyBufferData {
                 float3 position;
+                float3 direction;
+                float speed;
                 float padding0;
             };
             StructuredBuffer<MyBufferData> sharedBuffer;
@@ -40,6 +42,7 @@
         fixed4 _Color;
 
         float3 _MyPos;
+        float4x4 _LookAtMatrix;
 
         // Add instancing support for this shader. You need to check 'Enable Instancing' on materials that use the shader.
         // See https://docs.unity3d.com/Manual/GPUInstancing.html for more information about instancing.
@@ -48,14 +51,28 @@
             // put more per-instance properties here
         UNITY_INSTANCING_BUFFER_END(Props)
 
+        float4x4 look_at_matrix(float3 at, float3 eye, float3 up) {
+			float3 zaxis = normalize(at - eye);
+			float3 xaxis = normalize(cross(up, zaxis));
+			float3 yaxis = cross(zaxis, xaxis);
+			return float4x4(
+				xaxis.x, yaxis.x, zaxis.x, 0,
+				xaxis.y, yaxis.y, zaxis.y, 0,
+				xaxis.z, yaxis.z, zaxis.z, 0,
+				0, 0, 0, 1
+			);
+		}
+
         void setup() {
             #ifdef UNITY_PROCEDURAL_INSTANCING_ENABLED
             _MyPos = sharedBuffer[unity_InstanceID].position;
+            _LookAtMatrix = look_at_matrix(_MyPos + sharedBuffer[unity_InstanceID].direction, _MyPos, float3(0.0, 1.0, 0.0));
             #endif
         }
 
         void vert(inout appdata_full v) {
             #ifdef UNITY_PROCEDURAL_INSTANCING_ENABLED
+            v.vertex = mul(_LookAtMatrix, v.vertex);
             v.vertex.xyz += _MyPos;
             #endif
         }

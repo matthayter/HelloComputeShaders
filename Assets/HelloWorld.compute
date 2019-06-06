@@ -1,20 +1,84 @@
 ﻿// Each #kernel tells which function to compile; you can have many kernels
 #pragma kernel CSMain
 
+#include "UnityCG.cginc"
+
 #define GROUP_SIZE 256
 
 struct MyBufferData {
     float3 position;
+    float3 direction;
+    float speed;
     float padding0;
 };
 
 RWStructuredBuffer<MyBufferData> sharedBuffer;
+
+CBUFFER_START(Params)
+    float DeltaTime;
+    float RotationSpeed;
+    float BoidSpeed;
+    float3 FlockPosition;
+    float NeighbourDistance;
+    uint BoidsCount;
+CBUFFER_END
+
+void doFlocking(inout MyBufferData boid, in uint index) {
+    float velocity = BoidSpeed;
+    
+    // Make slow birds go faster if far away from flock ?
+    // float distance_from_flock = distance(boid.position, FlockPosition);
+    // if (distance_from_flock > 50)
+    // 	velocity += distance_from_flock / 50;
+    // velocity += min(max(distance(boid.position, FlockPosition) / 50, 1), BoidSpeed * 200);
+
+    float3 boid_pos = boid.position;
+    float3 boid_dir = boid.direction;
+
+    float3 separation = float3(0, 0.0, 0);
+    float3 alignment = float3(0.0, 0.0, 0.0);
+    float3 cohesion = FlockPosition;
+
+    uint nearbyCount = 1; // Add self that is ignored in loop
+
+    for (uint i = 0; i < BoidsCount; i++) {
+        if (i == index)
+            continue;
+            
+        if (distance(boid_pos, sharedBuffer[i].position) < NeighbourDistance)
+        {
+            float3 tempBoid_position = sharedBuffer[i].position;
+
+            float3 diff = boid_pos - tempBoid_position;
+            float diffLen = (length(diff));
+            float scaler = clamp(1.0 - diffLen / NeighbourDistance, 0.0, 1.0);
+            
+            separation += diff * (scaler / diffLen);
+            alignment += sharedBuffer[i].direction;
+            cohesion += tempBoid_position;
+
+            nearbyCount += 1;
+        }
+    }
+
+    float avg = 1.0 / nearbyCount;
+    alignment *= avg;
+    cohesion *= avg;
+    cohesion = normalize(cohesion - boid_pos);
+
+    float3 direction = alignment + separation + cohesion;
+
+    float ip = exp(-RotationSpeed * DeltaTime);
+    boid.direction = lerp((direction), normalize(boid_dir), ip);
+
+    boid.position += (boid.direction) * (velocity * DeltaTime);
+}
 
 [numthreads(GROUP_SIZE,1,1)]
 void CSMain (uint3 id : SV_DispatchThreadID)
 {
     uint index = id.x;
     MyBufferData data = sharedBuffer[index];
-    data.position += float3(0.002 * index, 0, 0);
+    doFlocking(data, index);
     sharedBuffer[index] = data;
 }

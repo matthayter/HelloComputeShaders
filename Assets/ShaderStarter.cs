@@ -16,12 +16,19 @@ public class ShaderStarter : MonoBehaviour
     [SerializeField] int m_objectCount;
     const int GROUP_SIZE = 256;
 
+    // Flocking params
+    public float m_rotationSpeed = 1f;
+    public float m_boidSpeed = 1f;
+    public float m_neighbourDistance = 1f;
+
     // 16 byte alignment
     public struct MyBufferData {
         public Vector3 position;
+        public Vector3 direction;
+        public float speed;
         public float padding0;
     }
-    const int SIZE_OF_STRUCT = 16;
+    const int SIZE_OF_STRUCT = 32;
 
     // Start is called before the first frame update
     void Start()
@@ -39,15 +46,26 @@ public class ShaderStarter : MonoBehaviour
 
         MyBufferData[] initBufferData = new MyBufferData[m_objectCount];
         for (int i = 0; i < m_objectCount; i++) {
-            initBufferData[i].position = Vector3.right * i;
+            initBufferData[i].position = Random.insideUnitSphere;
+            initBufferData[i].direction = Random.onUnitSphere;
+            initBufferData[i].speed = m_boidSpeed;
         }
 
         m_sharedBuffer.SetData(initBufferData);
+
+        m_computeShader.SetInt("BoidsCount", m_objectCount);
     }
 
     // Update is called once per frame
     void Update()
     {
+        m_computeShader.SetFloat("RotationSpeed", m_rotationSpeed);
+        m_computeShader.SetFloat("BoidSpeed", m_boidSpeed);
+        m_computeShader.SetFloat("NeighbourDistance", m_neighbourDistance);
+
+        m_computeShader.SetFloat("DeltaTime", Time.deltaTime);
+        m_computeShader.SetVector("FlockPosition", this.transform.position);
+
         m_computeShader.SetBuffer(m_kernelHandle, "sharedBuffer", m_sharedBuffer);
         m_computeShader.Dispatch(m_kernelHandle, m_objectCount / GROUP_SIZE + 1, 1, 1);
 
