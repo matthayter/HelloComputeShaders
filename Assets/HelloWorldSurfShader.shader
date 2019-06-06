@@ -14,7 +14,8 @@
 
         CGPROGRAM
         // Physically based Standard lighting model, and enable shadows on all light types
-        #pragma surface surf Standard fullforwardshadows
+        #pragma surface surf Standard vertex:vert fullforwardshadows
+        #pragma instancing_options procedural:setup
 
         // Use shader model 3.0 target, to get nicer looking lighting
         #pragma target 3.0
@@ -26,9 +27,18 @@
             float2 uv_MainTex;
         };
 
+        #ifdef UNITY_PROCEDURAL_INSTANCING_ENABLED
+            struct MyBufferData {
+                float3 position;
+                float padding0;
+            };
+            StructuredBuffer<MyBufferData> sharedBuffer;
+        #endif
+
         half _Glossiness;
         half _Metallic;
         fixed4 _Color;
+        float3 _MyPos;
 
         // Add instancing support for this shader. You need to check 'Enable Instancing' on materials that use the shader.
         // See https://docs.unity3d.com/Manual/GPUInstancing.html for more information about instancing.
@@ -36,6 +46,18 @@
         UNITY_INSTANCING_BUFFER_START(Props)
             // put more per-instance properties here
         UNITY_INSTANCING_BUFFER_END(Props)
+
+        void setup() {
+            #ifdef UNITY_PROCEDURAL_INSTANCING_ENABLED
+            _MyPos = sharedBuffer[0].position;
+            #endif
+        }
+
+        void vert(inout appdata_full v) {
+            #ifdef UNITY_PROCEDURAL_INSTANCING_ENABLED
+            v.vertex.xyz += _MyPos;
+            #endif
+        }
 
         void surf (Input IN, inout SurfaceOutputStandard o)
         {
